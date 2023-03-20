@@ -13,9 +13,6 @@ const columnProps: Partial<IStackProps> = {
   tokens: { childrenGap: 15 },
   styles: { root: { width: 300 } },
 };
-type StackProps = {
-  key: string;
-};
 
 interface Product {
   id: number;
@@ -24,20 +21,43 @@ interface Product {
   type: string;
   description: string;
   price: number;
+  color: number;
+};
+
+interface Orderitem {
+  productId: any;
+  quantity: any;
+};
+
+interface OrderShow {
+  id: any;
+  totalPrice: any;
+  status: any;
+  color: any
+};
+
+interface OrderItem {
+  id: number;
+  name: string;
+  quantity: number;
+  type: string;
+  description: string;
+  price: number;
+  color: number;
   count: number;
 };
 const requestCreate = "http://localhost:8084/api/products/create"
+const requestCreateOrder = "http://localhost:8084/api/orders"
 const requestUpdate = "http://localhost:8084/api/products/update"
 const requestDelete = "http://localhost:8084/api/products/delete/"
+const requestPay = "http://localhost:8084/api/payment/bill/"
 
-
-
-const handleUpdate = async ( item: any) => {
+const handleUpdate = async (item: any) => {
   try {
     const response = await fetch(requestUpdate, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json;charset=UTF-8'
       },
       body: JSON.stringify(item)
     });
@@ -57,7 +77,7 @@ const handleDelete = async (id: any) => {
     const response = await fetch(request, {
       method: 'DELETE',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json;charset=UTF-8'
       },
     });
     if (response.ok) {
@@ -70,12 +90,13 @@ const handleDelete = async (id: any) => {
     // Handle error
   }
 }
-const handleCreate = async (item:any) => {
+
+const handleCreate = async (item: any) => {
   try {
     const response = await fetch(requestCreate, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json;charset=UTF-8'
       },
       body: JSON.stringify(item)
     });
@@ -90,9 +111,49 @@ const handleCreate = async (item:any) => {
   }
 }
 
+const handleCreateOrder = async (item: any) => {
+  try {
+    const response = await fetch(requestCreateOrder, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json;charset=UTF-8'
+      },
+      body: JSON.stringify(item)
+    });
+    if (response.ok) {
+      window.location.reload()
+    } else {
+      throw new Error('Failed to create item');
+    }
+  } catch (error) {
+    console.error(error);
+    // Handle error
+  }
+}
+
+const handlePay = async (id:any) => {
+  try {
+    const request = requestPay + id
+    const response = await fetch(request, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json;charset=UTF-8'
+      },
+    });
+    const responseJSON = await response.json()
+    window.location.href = responseJSON.url
+  } catch (error) {
+    console.error(error);
+    // Handle error
+  }
+}
+
+
 
 export const App: React.FunctionComponent = () => {
   const [list, setList] = useState<Product[]>([])
+  const [listOrder, setListOrder] = useState<OrderShow[]>([])
+  const [listOrderNow, setListOrderNow] = useState<OrderItem[]>([])
   const [idState, setIdState] = useState('')
   const [product, setProduct] = useState('')
   const [nameState, setNameState] = useState('')
@@ -100,6 +161,44 @@ export const App: React.FunctionComponent = () => {
   const [typeState, setTypeState] = useState('')
   const [descriptionState, setDescriptionState] = useState('')
   const [priceState, setPriceState] = useState('')
+
+  const checkExist = (id: any) => {
+    var result = false
+    listOrderNow?.forEach(item => {
+      if (item.id === id) {
+        result = true
+      }
+    });
+    return result
+  }
+
+  const handleAdd = (id: any) => {
+    var temp = [...listOrderNow]
+    if (checkExist(id)) {
+      temp?.forEach(item => {
+        if (item.id === id)
+          item.count++
+      });
+    } else {
+      list?.forEach(item => {
+        if (item.id === id) {
+          let prod = {
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            type: item.type,
+            description: item.description,
+            price: item.price,
+            color: listOrderNow.length,
+            count: 1
+          };
+          temp.push(prod)
+        }
+      });
+    }
+    setListOrderNow(temp)
+    console.log(listOrderNow)
+  }
   useEffect(() => {
     try {
       const request = "http://localhost:8084/api/products/list?page=0&limit=100"
@@ -110,7 +209,7 @@ export const App: React.FunctionComponent = () => {
         let listprod: Product[] = []
 
         const data = responseJSON
-        let count = 0
+        let color = 0
         data?.forEach((item: any) => {
           let prod: Product = {
             id: 0,
@@ -119,7 +218,7 @@ export const App: React.FunctionComponent = () => {
             type: '',
             description: '',
             price: 0,
-            count: 0
+            color: 0
           };
           prod.id = item.id ? item.id : 0
           prod.name = item.name != null ? item.name : ''
@@ -127,8 +226,8 @@ export const App: React.FunctionComponent = () => {
           prod.type = item.type != null ? item.type : ''
           prod.description = item.description != null ? item.description : ''
           prod.price = item.price != null ? item.price : 0
-          prod.count = count
-          count++
+          prod.color = color
+          color++
           listprod.push(prod)
         });
         if (listprod) {
@@ -136,6 +235,41 @@ export const App: React.FunctionComponent = () => {
         }
       }
       fetchlist()
+      console.log(list)
+    } catch (error) {
+      console.log(error)
+    }
+    try {
+      const request = "http://localhost:8084/api/orders"
+      const fetchlistOrders = async () => {
+        const response = await fetch(request)
+        const responseJSON = await response.json()
+        console.log(responseJSON)
+        let listOrders: OrderShow[] = []
+
+        const data = responseJSON
+        let color = 0
+        data?.forEach((item:any) => {
+          let status = ''
+          if (item.status == 0){
+            status = 'Pending'
+          }else if(item.status == 1){
+            status = 'Success'
+          }else{
+            status = 'Failed'
+          }
+          let temp: OrderShow = {
+            id: item.id,
+            totalPrice : item.totalPrice,
+            status: status,
+            color: color
+          }
+          listOrders.push(temp)
+          color++
+        });
+        setListOrder(listOrders)
+      }
+      fetchlistOrders()
       console.log(list)
     } catch (error) {
       console.log(error)
@@ -209,10 +343,10 @@ export const App: React.FunctionComponent = () => {
             description: descriptionState,
           }
           handleCreate(item)
-          }} />
+        }} />
         <PrimaryButton className='btnSubmit' text="Update" onClick={() => {
           let item = {
-            id : idState,
+            id: idState,
             name: nameState,
             quantity: quantityState,
             type: typeState,
@@ -220,9 +354,41 @@ export const App: React.FunctionComponent = () => {
             description: descriptionState,
           }
           handleUpdate(item)
-          }}/>
+        }} />
       </Stack>
-      <Stack className=''>
+      <Stack className='Table'>
+        <Stack className='headTable'>
+          <Stack className='smallcell'>Name</Stack>
+          <Stack className='smallcell'>Type</Stack>
+          <Stack className='smallcell'>Quantity</Stack>
+          <Stack className='smallcell'>Price</Stack>
+          <Stack className='bigcell'>Description</Stack>
+          <Stack className='btncell'>Action</Stack>
+        </Stack>
+        {list.map(item => (
+          item.color % 2 === 0 ?
+            <Stack className='bodyTable1'>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.name}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.type}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.quantity}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.price}</Stack>
+              <Stack className='bigcell' onClick={() => { getDataUpdate(item) }}>{item.description}</Stack>
+              <Stack className='btncell'><Button onClick={() => { handleDelete(item.id) }}>Delete</Button> <Button onClick={() => { handleAdd(item.id) }}>Add</Button></Stack>
+            </Stack> :
+            <Stack className='bodyTable2'>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.name}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.type}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.quantity}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.price}</Stack>
+              <Stack className='bigcell' onClick={() => { getDataUpdate(item) }}>{item.description}</Stack>
+              <Stack className='btncell'><Button onClick={() => { handleDelete(item.id) }}>Delete</Button> <Button onClick={() => { handleAdd(item.id) }}>Add</Button></Stack>
+            </Stack>
+        ))}
+      </Stack>
+      <Stack className='header'>
+        Show order
+      </Stack>
+      <Stack className='Table'>
         <Stack className='headTable'>
           <Stack className='smallcell'>Name</Stack>
           <Stack className='smallcell'>Type</Stack>
@@ -231,25 +397,66 @@ export const App: React.FunctionComponent = () => {
           <Stack className='bigcell'>Description</Stack>
           <Stack className='smallcell'>Action</Stack>
         </Stack>
-        {list.map(item => (
-          item.count % 2 === 0 ?
-            <Stack className='bodyTable1' key={String(item.count)} onClick={() => { getDataUpdate(item) }}>
-              <Stack className='smallcell'>{item.name}</Stack>
-              <Stack className='smallcell'>{item.type}</Stack>
-              <Stack className='smallcell'>{item.quantity}</Stack>
-              <Stack className='smallcell'>{item.price}</Stack>
-              <Stack className='bigcell'>{item.description}</Stack>
+        {listOrderNow.map(item => (
+          item.color % 2 === 0 ?
+            <Stack className='bodyTable1'>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.name}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.type}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.count}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.price}</Stack>
+              <Stack className='bigcell' onClick={() => { getDataUpdate(item) }}>{item.description}</Stack>
               <Stack className='smallcell'><Button onClick={() => { handleDelete(item.id) }}>Delete</Button></Stack>
             </Stack> :
-            <Stack className='bodyTable2' key={String(item.count)} onClick={() => { getDataUpdate(item) }}>
-              <Stack className='smallcell'>{item.name}</Stack>
-              <Stack className='smallcell'>{item.type}</Stack>
-              <Stack className='smallcell'>{item.quantity}</Stack>
-              <Stack className='smallcell'>{item.price}</Stack>
-              <Stack className='bigcell'>{item.description}</Stack>
+            <Stack className='bodyTable2'>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.name}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.type}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.count}</Stack>
+              <Stack className='smallcell' onClick={() => { getDataUpdate(item) }}>{item.price}</Stack>
+              <Stack className='bigcell' onClick={() => { getDataUpdate(item) }}>{item.description}</Stack>
               <Stack className='smallcell'><Button onClick={() => { handleDelete(item.id) }}>Delete</Button></Stack>
             </Stack>
+        ))}
+      </Stack>
+      <Stack className='btncontain' horizontal>
+        <DefaultButton className='btnSubmit' text="Add to cart" onClick={() => {
+          var itemSubmit: Orderitem[] = []
+          listOrderNow.forEach(item => {
+            var temp = {
+              productId: item.id,
+              quantity: item.count
+            }
+            itemSubmit.push(temp)
+          });
+          
 
+          handleCreateOrder({"orders": itemSubmit})
+        }} />
+      </Stack>
+
+      <Stack className='header'>
+        List Order
+      </Stack>
+      <Stack className='Table'>
+        <Stack className='headTable'>
+          <Stack className='smallcell'>No.</Stack>
+          <Stack className='smallcell'>Price</Stack>
+          <Stack className='smallcell'>Status</Stack>
+          <Stack className='smallcell'>Action</Stack>
+        </Stack>
+        {listOrder?.map(item => (
+          item.color % 2 === 0 ?
+            <Stack className='bodyTable1'>
+              <Stack className='smallcell'>{item.color}</Stack>
+              <Stack className='smallcell'>{item.totalPrice}</Stack>
+              <Stack className='smallcell'>{item.status}</Stack>
+              <Stack className='smallcell'><Button onClick={() => { handlePay(item.id) }}>Pay now!</Button></Stack>
+            </Stack> :
+            <Stack className='bodyTable2'>
+              <Stack className='smallcell'>{item.color}</Stack>
+              <Stack className='smallcell'>{item.totalPrice}</Stack>
+              <Stack className='smallcell'>{item.status}</Stack>
+              <Stack className='smallcell'><Button onClick={() => { handlePay(item.id) }}>Pay now!</Button></Stack>
+            </Stack>
         ))}
       </Stack>
     </Stack>
