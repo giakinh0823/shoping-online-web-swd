@@ -449,13 +449,13 @@ export const App: React.FunctionComponent = () => {
               <Stack className='smallcell'>{item.color}</Stack>
               <Stack className='smallcell'>{item.totalPrice}</Stack>
               <Stack className='smallcell'>{item.status}</Stack>
-              <Stack className='smallcell'><Button onClick={() => { handlePay(item.id) }}>Pay now!</Button></Stack>
+              <Stack className='smallcell'>{item.status !== 'Success'?<Button onClick={() => { handlePay(item.id) }}>Pay now!</Button>: <Button disabled onClick={() => { handlePay(item.id) }}>Pay now!</Button>}</Stack>
             </Stack> :
             <Stack className='bodyTable2'>
               <Stack className='smallcell'>{item.color}</Stack>
               <Stack className='smallcell'>{item.totalPrice}</Stack>
               <Stack className='smallcell'>{item.status}</Stack>
-              <Stack className='smallcell'><Button onClick={() => { handlePay(item.id) }}>Pay now!</Button></Stack>
+              <Stack className='smallcell'>{item.status !== 'Success'?<Button onClick={() => { handlePay(item.id) }}>Pay now!</Button>: <Button disabled onClick={() => { handlePay(item.id) }}>Pay now!</Button>}</Stack>
             </Stack>
         ))}
       </Stack>
